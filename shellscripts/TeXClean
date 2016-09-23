@@ -1,0 +1,347 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+'''Lists files which are not included n Tex and deletes files which are
+included in unused tex files'''
+
+import os, sys, pickle
+import re
+
+TeX = []
+usedtex = set()
+usedimg = set()
+MasterDoc = None
+
+pymybib = "" #Saves the path to .pymybib
+mypath = ""
+
+def TryDecode(caption):
+
+	try:								# try to decode from utf8
+		caption.decode('utf8')
+	except:
+		pass
+	else:
+		caption = caption.decode('utf8')
+		return caption # returns caption decoded
+
+	try:								# try to decode from ISO-8859-1
+		caption.decode('ISO-8859-1')
+	except:
+		pass
+	else:
+		caption = caption.decode('ISO-8859-1')
+		return caption # returns caption decoded
+
+	return None # no decoding possible
+
+class Image:
+	def __init__(self, relpath, caption):
+
+		self.caption = caption
+		mytry = TryDecode(caption)
+		if mytry: #if successful
+			self.caption	= mytry.encode('utf8')
+
+		filenames = []#list of the filenames only
+		for i in range(len(relpath)):
+			t = relpath[i].split('/')	#delete the first relative folder
+			filenames.append(t[len(t)-1])
+
+		self.path=[]
+		for i in range(len(relpath)):
+			#check if the file exists
+			tp = relpath[i]
+			#if not tp.endswith('.eps'): tp += '.eps'
+
+			if not tp[-3] == '.' and not tp[-4] == '.':
+				tp += '.eps'
+#			print tp
+
+			if os.path.isfile(tp):
+				self.path.append(tp)
+				continue
+
+		self.filename	= filenames
+		self.thumbs 	= []
+
+		self.fullname = []
+		for i in range(len(self.filename)):
+#			self.fullname.append(os.path.join(self.path[i], self.filename[i]))
+			self.fullname.append(self.path[i])
+
+		del filenames
+
+	def __del__(self):
+		del self.path
+		del self.caption
+
+	def __len__(self):
+		return len(self.filename)
+
+	def makeThumbs(self):
+		pass
+
+def GetCaption(str):
+	"""Determines the next closing bracket } in a \caption-string.
+		Occurences of opening and closing within a caption is treated."""
+	res = ""
+	test = str.lower()
+	i = test.find('\\caption{')
+	if i > -1 : res = str[i+9:]
+	else: return ""
+
+	test = res.lower()
+
+	klammer_auf = test.find('{')
+	klammer_zu  = test.find('}')
+
+	if klammer_auf > -1 and klammer_zu > -1:
+		kc = 0
+		while klammer_auf < klammer_zu:					# neue klammer innerhalb zweier {}
+			klammer_zu  = test.find('}', klammer_zu+1)	# finde nächste Klammer
+			klammer_auf = test.find('{', klammer_auf+1)
+			kc+= 1
+			if kc > 100: break # for security reasons, we don't want to loop until the hell freezes
+		res = res[:klammer_zu]
+	return res
+
+class TeXFile:
+	def __init__(self, path, name):
+		self.name = name	# filename
+		if (path[len(path)-1] != '/'): path = path +'/' # path alwasy with "/"
+
+		self.path	= path	# path of self
+		self.fullname = os.path.join(self.path, self.name)
+		self.img	= []	# stores included images
+		self.tex	= []	# stores included tex files
+		self.master = False # f it is a master doc
+		self.used 	= False # if this file is used
+		self.readfile()
+	def __del__(self):
+		del self.img
+		del self.name
+	def __cmp__(self, other):
+		return cmp(self.path+self.name, self.path+self.name)
+
+	def readfile(self):
+		'''Scans a TeX-Files for included images'''
+		#\includegraphics[width=3.8cm]{chap2/Bilder/couette.eps}
+		try:
+			f = open(self.path + self.name)
+			lines = f.readlines()
+			f.close()
+		except:
+			print "Permission denied:",self.path + self.name
+			return
+
+		j = []
+		isfig = False
+		figline = "";
+		for i in lines:
+			if '%' in i: i = i[:i.find('%')] # cut of comments
+
+
+			k = i.strip('\r\n') # cut windows line endings
+			k = k.strip('\n')	# cut uix line endings
+			if "\\begin{figure}" in i:
+				isfig = True
+			elif "\\end{figure}" in i:
+				isfig = False
+				figline += k
+				j.append(figline)
+				figline = ""
+			if isfig:
+				figline += k
+			elif (not isfig and "\\includegraphics" in i):
+				j.append(k)
+
+			input = re.compile('.*\\input\{(.*)\}.*')
+			res = input.findall(i)
+			if res:
+				if res[0].lower().endswith(".tex"):
+					self.tex.append(res[0])
+				else:
+					self.tex.append(res[0]+ '.tex')
+
+			input = re.compile('\\include\{(.*)\}.*')
+			res = input.findall(i)
+			if res:
+				if res[0].lower().endswith(".tex"):
+					self.tex.append(res[0])
+				else:
+					self.tex.append(res[0]+ '.tex')
+
+
+#			//Check if master document
+			if ("\\begin{document}" in i) : self.master = True
+
+		del lines
+
+		tpath = re.compile('\\includegraphics[^\{]{0,}\{([^\}]*)\}')
+		tcapt = re.compile('\\caption[^\{]{0,}\{([^\}]*)\}') #funktioniert, aber problem mit mathe umgebung
+		#tcapt = re.compile('\\caption[^\{]{0,}\{(.*)\}')
+		caption = path = ""
+		for i in j:
+			mpath = tpath.findall(i)
+			#mcapt = tcapt.findall(i)
+			caption = GetCaption(i)
+			#if mcapt:
+				#caption = mcapt[0]
+
+			if mpath:
+				for i in range(len(mpath)):
+
+					ende = mpath[i].split('/')
+					anfang = self.path.split('/')
+
+					if anfang[len(anfang)-1]=='': del anfang[len(anfang)-1]
+					if ende[0] == '' : del ende[0]
+
+#					print anfang
+#					print ende
+					while anfang[len(anfang)-1] == ende[0]:
+						del ende[0]
+						if len(ende) == 0: break
+					mpath[i] = ""
+					for k in anfang:
+						mpath[i] += k + '/'
+					for k in range(len(ende)):
+						mpath[i] += ende[k]
+						if k < len(ende)-1: mpath[i] += '/'
+
+					#mpath[i] = self.path + mpath[i]
+
+
+				self.img.append(Image(mpath,caption))
+
+
+#		print "name: ", self.name
+#		print "path", self.path
+#		print "master", self.master
+#		if self.tex:
+#			print "Included TeX files"
+#			for i in self.tex:	print i
+#		if self.img:
+#			print "Included image files"
+#			for i in self.img:	print i.filename
+
+
+def dumpList(List):
+	"""Saves The list of albums to a file"""
+	file=open("db.pickle", "w")
+	pickle.dump(List, file)
+	file.close()
+
+def dumpObj(Obj, Filename):
+	"""Saves lists to a textfile"""
+	file=open(Filename, "w")
+	for i in Obj:
+		file.write(i + '\n')
+	file.close()
+
+def ScanFolder(Path):
+	'''Scan for tex files in the folder and scan for includes of other tex-files and images'''
+	print "Scanning", Path, "for tex-files."
+
+	if not os.path.exists(Path): return None
+	TeX = []
+	for root, dirs, files in os.walk(Path):
+		for f in files:
+			if f.lower().endswith('.tex'):
+				complete=os.path.join(root, f)
+				cpath, cfile = os.path.split(complete)
+				#print cpath
+				TeX.append(TeXFile(cpath,f))
+				#print root
+	return TeX
+
+def ScanFolderAll(Path, exceptions=['.svn']):
+	'''Scan for files in the folder'''
+	print "Scanning", Path, "for files."
+
+	if not os.path.exists(Path): return None
+	flist = []
+	for root, dirs, files in os.walk(Path):
+		for f in files:
+			runover = False
+			for exception in exceptions:
+				if exception in root :
+					runover = True
+					break
+			if runover: continue
+			complete=os.path.join(root, f)
+			flist.append(complete)
+
+	return flist
+
+def adduseddocs(file, reverse = False):
+	for i in TeX:
+		if i.fullname == file:
+			for j in i.tex:
+					file = os.path.join(MasterDoc.path, j)
+					usedtex.add(file)
+
+			for j in i.img:
+				for k in range(len(j)):
+					usedimg.add(j.path[k])
+	if reverse:
+		for i in usedtex: adduseddocs(i)
+
+############################ MAIN PROGRAM #############################
+
+
+if '-?' in sys.argv:
+	print """usage:
+			"""
+	sys.exit(1)
+
+mypath = sys.argv[1]
+if mypath[len(mypath)-1] == '/': mypath = mypath[:len(mypath)-1]
+
+
+if not os.path.exists(mypath): sys.exit(1)
+
+TeX = ScanFolder(mypath) # find all tex documents
+
+
+# check for the MasterDoc
+for i in TeX:
+	if i.master == True:
+		MasterDoc = i
+		usedtex.add(i.fullname) 		# add the master doc
+		adduseddocs(i.fullname, True) 	# add all includes files
+		break
+
+
+dellist = []
+#delete all files that clearly are not used
+for i in TeX:
+	if not i.fullname in usedtex:
+		print "Unused file:", i.fullname
+		dellist.append(i.fullname)
+
+for i in TeX:
+	for j in i.img:
+		for k in j.fullname:
+			if not k in usedimg:
+				print "Unused file:", k
+				dellist.append(k)
+
+for i in dellist:
+	os.system("svn delete --force %s" % i)
+
+flist = ScanFolderAll(mypath)
+dellist = []
+for i in flist:
+	if not i in usedtex and not i in usedimg:
+		print "Probably unused file:", i
+		dellist.append(i+'\n')
+
+f = open("todelete.log", "w")
+f.writelines(dellist)
+f.close()
+
+
+
+

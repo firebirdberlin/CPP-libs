@@ -1,0 +1,125 @@
+#! /usr/bin/env python
+# -*- coding: utf-8 -*-
+
+import os
+import sys
+import shutil # zugriff auf Dateien
+import getopt # command line parsing
+comment_char = '%'
+linewidth = 80
+
+print """
+Dieses Skript macht einen Zeilenumbruch nach 80 Zeichen.
+Kommentare mit dem Kommentarzeichen %c werden ergaenzt.
+
+Benutzung:
+staticlinebreak Dateiname
+
+"""
+
+def insertstring(src, str, pos):
+	"""Fuegt einen String str in einen string src an der Stelle pos ein"""
+	return src[:pos]+str+src[pos:]
+
+def insertstring_ex(src, str, pos):
+	"""Fuegt einen String str in einen string src an der Stelle pos ein.
+	Sucht das letzte Leerzeichen vor dem Zeilenende, bricht also nur ganze
+	Woerter um. Loescht Leerzeichen am neuen Zeilenanfang. Gibt liste zurueck,
+	die den String und den String nach dem Zeilenumbruch enthaelt."""
+
+	white = src.rfind(' ', 0, pos) # finde Leerzeichen ab dem 80. Zeichen von rechts
+
+	if white == -1: return [src, None] # if no whitespace was found
+	return [src[:white]+str, src[white+1:]]
+
+def break_at(src, brk):
+	"""Macht einen Zeilenumbruch nach brk Zeichen und wiederholt das ganz bis
+	   String der zuende ist"""
+	res = []
+
+	s = insertstring_ex(src, '\n', brk)
+	# Kommentare ergaenzen
+	ccol = src.rfind(comment_char) # column of the comment
+	if src.lstrip().startswith(comment_char) and s[1] or ( (ccol != -1) and ccol < brk and (src[ccol-1] != '\\')):
+		if not s[1].lstrip().startswith(comment_char):
+			s[1] = '% ' + s[1]
+	res.append(s[0])
+
+	if s[1]:
+		while len(s[1]) > brk:
+			last = s[1]
+			s = insertstring_ex(s[1], '\n', brk) # add a line break
+
+			res.append(s[0])
+			if not s[1]: break # if seceond part of the string is empty then stop
+
+			# Kommentare ergaenzen (falls die Zeile eine Kommentarzeile war, dann muss nach dem Umbruch wieder ein Kommentar eingefuegt werden)
+			ccol = last.rfind(comment_char) # column of the comment
+			if last.lstrip().startswith(comment_char) or ( (ccol != -1) and ccol < brk and (last[ccol-1] != '\\')):
+				if not s[1].lstrip().startswith(comment_char):
+					s[1] = '% ' + s[1]
+
+				## if the second part of the string contains no whitespaces, then there's nothing left to do
+				if s[1].strip().rfind(' ') < 2: break
+				##! \attention  do not delete this line, it is important for comments which are longer than brk
+		res.append(s[1]) # append the rest of the string
+
+	ret = ''
+	for r in res:
+		try: 	ret += r
+		except: print "Some error occured at", r
+	return ret
+
+if len(sys.argv)< 2:
+	print "Keine Eingabedatei. Versuch's nochmal :) "
+	sys.exit(-1)
+
+options, remainder = getopt.gnu_getopt(sys.argv[1:],
+										'w:', [
+											 'linewidth='
+											])
+for opt, arg in options:
+	if opt in ('-w', '--linewidth')	   : 	linewidth = int(arg)
+	#elif opt in ('-l', '--labels-myocard'):labels_myocard_str = arg
+
+
+for i in range(1,len(sys.argv)): # multiple input files ?
+
+	datei= sys.argv[i]
+	if not os.path.exists(datei): continue;
+
+	print "Die Datei", datei,"wird bearbeitet."
+
+	f = open(datei, "r")
+	lines = f.readlines()
+	f.close
+	i=1
+
+	result = []
+	for l in lines:
+		if len(l) > linewidth:
+			result.append(break_at(l, linewidth))
+		else:
+			result.append(l)
+
+	# works only for utf8-encoded files
+	for i in range(len(result)):
+		result[i] = result[i].replace("ä", "\\\"a")
+		result[i] = result[i].replace("ö", "\\\"o")
+		result[i] = result[i].replace("ü", "\\\"u")
+		result[i] = result[i].replace("Ä", "\\\"A")
+		result[i] = result[i].replace("Ö", "\\\"O")
+		result[i] = result[i].replace("Ü", "\\\"U")
+		result[i] = result[i].replace("ß", "\\ss ")
+#		print result[i]
+
+	out = insertstring(datei, '_static_line_break',datei.rfind('.'))
+	try:
+		shutil.copyfile(datei, datei+'.slbbak')
+	finally:
+		f = open(datei, "w")
+		f.writelines(result)
+		f.close()
+
+
+print "... done."

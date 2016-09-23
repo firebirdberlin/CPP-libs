@@ -1,0 +1,101 @@
+#! /usr/bin/env python
+import sys
+
+datei = None
+ausgabe = None
+sel = None 			# selected columns
+sep = ' '			# separator
+silent = False
+
+
+def mysplit(string, sep=' '):
+	"Splits strings"
+	res = []
+
+	delimiter = ['"', "'"]
+
+	tmp = ''
+	cnt = 0
+	for i in range(len(string)):
+		c = string[i]
+		if c in delimiter: cnt += 1
+
+		if c == sep and cnt%2 == 0: # if nr of delimiters is even or we are at the end of a col
+			res.append(tmp)
+			tmp = ''
+		else:
+			tmp += c
+
+		if i+1 == len(string): res.append(tmp) # the last column
+	for i in range(len(res)):
+		res[i] = res[i].strip()
+	return res
+
+
+for i in range(len(sys.argv)):
+	if sys.argv[i] == '-s':
+		sel = sys.argv[i+1].split(',')
+	if sys.argv[i] == '-f':
+		datei = sys.argv[i+1]
+	if sys.argv[i] == '-o':
+		ausgabe = sys.argv[i+1]
+	if sys.argv[i] == '-t':
+		sep = sys.argv[i+1].strip("'").strip('"')
+		print "Separator is set to ", sep, "."
+
+
+ignore_errors = ( '-i' in sys.argv )
+
+
+if not ausgabe and (datei or sel): silent = True
+if not silent:
+	print """
+Dieses Skript selektiert Spalten aus einer Datei.
+
+Benutzung:
+colselect -f Dateiname -o ausgabe -s 1,2,3,4
+
+-i : ignoriere Fehler (optional)
+-t "<char>": separator (Trennzeichen)
+"""
+if not sel or not datei:
+	sys.exit()
+
+if not silent:
+	print 'Du kriegst was Du willst ', sel
+	print "Die Datei %s wird bearbeitet und in %s abgelegt." % (datei,ausgabe)
+
+
+
+f = open(datei, "r")
+lines = f.readlines()
+f.close
+
+result = []
+for l in lines:
+
+	if l.strip().startswith('#'): result.append(l) # kommentare kommentarlos uebernehmen
+	#cols = l.split(sep) # splitte nach dem separator
+	cols = mysplit(l,sep)
+	newline = ''
+
+	if ignore_errors:
+		for i in sel:
+			try:
+				newline += cols[int(i)-1] + '\t'
+			except: # in the case of error we append the complete line
+				newline = l
+	else:
+		for i in sel:
+			newline += cols[int(i)-1] + '\t'
+
+	result.append(newline.strip()+'\n')
+
+if not silent:
+	f = open(ausgabe, "w")
+	f.writelines(result)
+	f.close()
+	print "fertig."
+else:
+	for i in result:
+		print i.rstrip()

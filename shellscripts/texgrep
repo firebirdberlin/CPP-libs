@@ -1,0 +1,3 @@
+#!/bin/bash
+
+find . -path '*.tex' | xargs grep --color=auto -d skip -I -n "$@"

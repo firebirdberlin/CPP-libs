@@ -1,0 +1,54 @@
+#! /bin/bash
+# List the current working directory of a process
+
+# 2013-02-01  Stefan Fruhner  <stefan.fruhner@gmail.com>
+# * arguments must be pids if numeric, otherwise process names
+
+function help(){
+	echo -e "cwdof [-p] [-n] program1 program2\n params:\n -p : show PID\n -n : show name";
+	exit;
+}
+
+if [[ $# -eq 0 ]]; then
+	help;
+fi
+
+SHOW_PID=
+SHOW_NAME=
+while getopts np? OPTION ; do
+	case $OPTION in
+		n)	SHOW_NAME=1;;
+		p)	SHOW_PID=1;;
+		?)	help;;
+		:)   echo "Option \"-$OPTARG\" needs argument." >&2
+			$EXIT_ERROR;;
+		*)   echo "error ...\"$OPTION\"... " >&2
+			$EXIT_BUG;;
+	esac
+done
+
+for j in $@ ; do
+
+	# skip options
+	if [[ "${j:0:1}" = "-" ]]; then continue; fi;
+
+	if [[ $j = *[[:digit:]]* ]]; then
+	 PID=$j
+	else
+	 echo "pidof $j";
+	 PID=`pidof $j`
+	fi
+
+	case $j in
+	 -*)
+#	 echo "Option must be placed before Non-option arguments: $j"
+		;;
+	 *)
+		for i in $PID ; do
+			if [ ! -z "$SHOW_NAME" ]; then echo -ne "$j\t"; fi
+			if [ ! -z "$SHOW_PID" ]; then echo -ne "$i\t"; fi
+			ls -al /proc/$i |grep cwd| sed 's/.*-> \(.*\)/\1/g';
+		done
+		;;
+	esac
+done;

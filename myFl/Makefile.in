@@ -1,0 +1,58 @@
+
+
+## Attention This library should be completely independent of the Simulation
+## 			 project so that it can be included in different programs.
+
+CFLAGS  = `@prefix@/bin/mylibs-config --cflags` `fltk-config --cflags`
+LDFLAGS = `@prefix@/bin/mylibs-config --ldflags`
+
+CPPFILES = $(shell ls *.cpp)
+HPPFILES = $(shell ls *.hpp)
+OFILES   = $(CPPFILES:%.cpp=%.o)
+CC = g++
+
+FLTK_VERSION = $(shell fltk-config --api-version)
+# fltk 1.3 is optionally, it is used if it is found and make wasn't told not to use it.
+# Because this flag may also be needed by sub-makefiles it will be exported.
+ifeq ($(FLTK_VERSION), 1.3)
+	export FLTK_FLAG = -DHAVE_FLTK_1_3
+endif
+
+libmyFl.a: $(OFILES)
+	rm -f libmyFl.a
+	ar -r libmyFl.a $(OFILES)
+	ar -t libmyFl.a
+
+%.o: %.cpp $(HPPFILES)
+	$(CC) $(CFLAGS) $(OPT) $(FLTK_FLAG) -c $<
+
+# build documentation - not automatically
+doc:
+	@echo "================= Building Documentation ===================="
+	doxygen Doxyfile > doxygen.log
+	@echo "See doxygen.log for further information"
+
+install:libmyFl.a
+	@echo "================= Installing myFl ==========================="
+	@echo "Installing into  @prefix@/stow/mylibs/"
+	@echo  @prefix@/stow/mylibs/ > prefix.log
+
+	mkdir -p @prefix@/stow/mylibs/bin
+	mkdir -p @prefix@/stow/mylibs/lib
+	mkdir -p @prefix@/stow/mylibs/include/myFl;
+	install --mode=755 myFl-config @prefix@/stow/mylibs/bin/myFl-config
+
+	install --mode=744 *.a @prefix@/stow/mylibs/lib/;
+	install --mode=744 *.hpp @prefix@/stow/mylibs/include/myFl;
+	@echo "=============================================================="
+
+uninstall:
+	cd @prefix@/stow/mylibs/include/ && rm -rfv myFl myFl.hpp && cd -;
+	cd @prefix@/stow/mylibs/lib/ && rm -vf libmyFl.a && cd -;
+	cd @prefix@/stow/mylibs/bin/ && rm -vf myFl-config && cd -;
+
+clean:
+	@echo "======================== Clean Up ==========================="
+	rm -rif *.o doxygen.log libmyFl.a
+	make -C examples clean
+	rm -rif doc latex

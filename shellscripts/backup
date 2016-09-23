@@ -1,0 +1,153 @@
+#! /bin/bash
+
+#  backup
+# ------
+# Simple backup creator.
+#
+#  Copyright 2012 Stefan Fruhner <stefan.fruhner@gmail.com>
+#
+#  This program is free software; you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation; either version 2 of the License, or
+#  (at your option) any later version.
+#
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with this program; if not, write to the Free Software
+#  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
+#  MA 02110-1301, USA.
+#
+#
+
+# Changelog
+# 2012-12-10  Stefan Fruhner  <stefan.fruhner@gmail.com>
+#
+#  * added .git folders to option -s. these folders will be excluded from the archive
+
+USAGE=" backup v0.3: \n
+		usage : Change into the directory you want you backup and
+				run the script. It will create a tar-file with time
+				and date in the name.
+				Additionally if a storage device was found with the file
+				.backupstorage. the script will copy the backup to the device.
+				\n\n
+				parameters: 	-? this help\n
+								-s ignore .svn folders\n
+								-c back up only *.cpp, *.c, *.h and [Mm]akefiles\n\n"
+
+
+if [ "$1" == "-?" ]; then
+	echo -e $USAGE;
+	exit;
+fi
+
+function find_backupstorage() {
+	backupdevice=`mount`
+
+	OLDIFS=${IFS}
+	IFS=$'\n'
+	for i in $backupdevice # test all mount points
+	do
+		drive=${i#*\ on\ }
+		drive=${drive%\ type*}
+		if [ -f "$drive/.backupstorage" ]; then # if the file is found, it is my backup storage
+			echo "\"$drive\""
+			return
+		fi
+	done
+	IFS=${OLDIFS}
+}
+
+cryptfile=0
+while [ $# -ge 1 ];do
+	if [[ "$1" == "--crypt" ]]; then
+		cryptfile=1;
+		shift 1;
+		continue;
+	fi
+
+	if [[ "$1" == "-s" ]]; then
+		nosvnmode=1;
+		shift 1;
+		continue;
+	fi
+
+	if [[ "$1" == "-c" ]]; then
+		cfilesmode=1;
+		shift 1;
+		continue;
+	fi
+
+done;
+
+STORAGE=`find_backupstorage`
+
+MYDATETIME=`date +"%Y%m%d_%H%M%S"`
+
+echo "Backing up " $PWD
+echo "BACKUP STORAGE :$STORAGE"
+
+FolderToBackup=`basename "$PWD"`
+FolderName=`basename "$PWD"`_
+
+## Leerzeichen escapen
+#FolderToBackup=$(echo "$FolderToBackup" | sed 's/ /\\ /g')
+#FolderName=`echo $FolderToBackup`_
+
+BACKUPFILE=$FolderName$MYDATETIME.tar.gz
+
+# remove old backups from parent folder
+rm -vfi ../"$FolderName"*tar.gz
+rm -vfi ../"$FolderName"*tar.gz.gpg
+
+# remove old backups from storage device
+if [ -n "$STORAGE" ]; then
+	STOR=`echo $STORAGE | sed -s "s/^\(\(\"\(.*\)\"\)\|\('\(.*\)'\)\)\$/\\3\\5/g"`
+	rm -vfi ${STOR}/"$FolderName"*tar.gz
+	rm -vfi ${STOR}/"$FolderName"*tar.gz.gpg
+fi
+
+# create tar.gz
+#echo $1;
+if [ "$nosvnmode" == "1" ]; then
+	echo "Ignoring hidden svn files ... ";
+	tar cvz --exclude='.svn' --exclude='.git' --file "../$BACKUPFILE" "../$FolderToBackup"
+elif [ "$cfilesmode" = "1" ]; then
+	echo "Backing up only c, cpp, h and [Mm]akefiles ... ";
+	find "../$FolderToBackup" -name '*.cpp' -or -name '*.c' -or -name '*.h' -or -name '*akefile' | sed 's/\\n/ /g' | xargs tar cvzf "../$BACKUPFILE"
+else
+	tar cvzf "../$BACKUPFILE" "../$FolderToBackup"
+fi
+
+cd ..
+
+# crypt the file to myself
+if [[ "$cryptfile" == "1" ]]; then
+	gpg -r `whoami` -e $BACKUPFILE;
+	chmod 600 $BACKUPFILE.gpg
+
+	rm $BACKUPFILE;
+	# rename file in variable
+	BACKUPFILE=$BACKUPFILE.gpg
+	# print some information
+	echo "Backup saved to ""../$BACKUPFILE"
+	ls -alh "$BACKUPFILE";
+else
+	# print some information
+	echo "Backup saved to ""../$BACKUPFILE"
+	ls -alh "$BACKUPFILE"
+fi
+
+# save a copy to the backup device
+if [ -n "$STORAGE" ]; then
+	echo
+	echo "Copying $BACKUPFILE to $STORAGE"
+	cmd=`echo "rsync --progress \"$BACKUPFILE\" $STORAGE"`
+	echo "$ $cmd"
+	eval $cmd
+
+fi

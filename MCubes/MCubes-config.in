@@ -1,0 +1,40 @@
+#! /bin/bash
+
+LIBNAME=MCubes
+
+function usage {
+	echo -e "usage : `basename $0` [Option]\n\
+possible options :\n\
+	--help
+	--cflags        : pre-processor and compiler flags\n\
+	--ldflags       : linking information for MCubes library\n\
+	--ldstaticflags : linking information for static linking\n\
+	--prefix        : installation prefix\n";
+	exit 0;
+}
+
+if [ $# -le 0 ]; then usage; fi
+
+which mylibs-config &> /dev/null
+if [ $? -eq 0 ]; then # gsl found
+	LDADD+=" `mylibs-config --ldflags`"
+	CADD+=" `mylibs-config --cflags`"
+	STAT+=" `mylibs-config --ldstaticflags`"
+else
+	echo "ATTENTION : mylibs-config could not be found. Please install";
+	echo "            mylibs properly before you use MCubes.";
+	echo;
+fi
+
+
+for i in $@; do
+	case "$i" in
+		-?|--help)	usage;	;;
+		--cflags)	echo "-I@prefix@/include/ ${CADD} -DHAVE_LIBMCUBES"; exit 0; ;;
+		--ldflags)	echo "-L@prefix@/lib/ -l${LIBNAME} ${LDADD} -DHAVE_LIBMCUBES"; exit 0; ;;
+		--ldstaticflags) echo "@prefix@/lib/lib${LIBNAME}.a ${STAT} -DHAVE_LIBMCUBES"; exit 0; ;;
+		--prefix)	echo "@prefix@"; exit 0; ;;
+	esac
+done
+
+

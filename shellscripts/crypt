@@ -1,0 +1,8 @@
+#! /bin/bash
+
+# encrypt files easily using gpg
+# usage: $ crypt <filename>
+
+gpg -c $1
+chmod 600 $1.gpg
+rm $1

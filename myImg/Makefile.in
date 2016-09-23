@@ -1,0 +1,51 @@
+
+
+## Attention This library should be completely independent of the Simulation
+## 			 project so that it can be included in different programs.
+
+CFLAGS  = `@prefix@/bin/mylibs-config --cflags`
+LDFLAGS = `@prefix@/bin/mylibs-config --ldflags`
+
+CPPFILES = $(shell ls *.cpp)
+HPPFILES = $(shell ls *.hpp)
+OFILES   = $(CPPFILES:%.cpp=%.o)
+CC       = @CGCC@
+
+libmyImg.a: $(OFILES)
+	rm -f libmyImg.a
+	ar -r libmyImg.a $(OFILES)
+	ar -t libmyImg.a
+
+%.o: %.cpp $(HPPFILES)
+	$(CC) $(CFLAGS) $(OPT) -c $<
+
+# build documentation - not automatically
+doc:
+	@echo "================= Building Documentation ===================="
+	doxygen Doxyfile > doxygen.log
+	@echo "See doxygen.log for further information"
+
+install:libmyImg.a
+	@echo "================= Installing myImg ==========================="
+	@echo "Installing into @prefix@/stow/mylibs/"
+	@echo  @prefix@/stow/mylibs/ > prefix.log
+
+	mkdir -p @prefix@/stow/mylibs/bin
+	mkdir -p @prefix@/stow/mylibs/lib
+	mkdir -p @prefix@/stow/mylibs/include/myImg;
+
+	install --mode=755 myImg-config @prefix@/stow/mylibs/bin/myImg-config
+
+	install --mode=744 *.a @prefix@/stow/mylibs/lib/;
+	install --mode=744 *.hpp @prefix@/stow/mylibs/include/myImg;
+	@echo "=============================================================="
+
+uninstall:
+	cd @prefix@/stow/mylibs/include/ && rm -rvf myImg myImg.hpp && cd -;
+	cd @prefix@/stow/mylibs/lib/ && rm -vf libmyImg.a && cd -;
+	cd @prefix@/stow/mylibs/bin/ && rm -vf myImg-config && cd -;
+
+clean:
+	@echo "======================== Clean Up ==========================="
+	rm -rif *.o doxygen.log libmyImg.a
+	rm -rif doc latex

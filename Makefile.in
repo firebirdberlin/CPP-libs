@@ -1,0 +1,98 @@
+
+CC 	     = @CGCC@
+CFLAGS  := -fopenmp -Wall -Wextra -pedantic
+#-pedantic-errors
+
+CFLAGS += @CXXFLAGS@
+
+CFLAGS  += @GSLCFLAGS@
+LDFLAGS += @GSLLIBS@
+
+CFILES =
+HFILES = $(shell ls *.h)
+
+CPPFILES = $(shell ls *.cpp)
+HPPFILES = $(CFILES:%.cpp=%.hpp)
+OFILES   = $(CPPFILES:%.cpp=%.o)
+
+ARCH = $(shell uname -m)
+HOST = $(shell hostname)
+
+ifdef D
+	DFLAGS := -D$(D)
+endif
+
+
+lib/libmylib.a: $(OFILES) lib
+	ar -r lib/libmylib.a $(OFILES)
+
+lib/libmyini.a : myinifiles.o lib
+	ar -r lib/libmyini.a myinifiles.o
+
+lib:
+	mkdir -p lib
+
+%.o: %.cpp $(HFILES)
+	$(CC) -c $(OPT) $(DFLAGS) $(CFLAGS) $<
+
+doc:
+	doxygen Doxyfile > doxygen.log
+	! pidof firefox && firefox doc/index.htm
+
+tags:
+	./make_tags.sh
+
+installmylibs: lib/libmylib.a lib/libmyini.a
+	@echo "Installing into  @prefix@/stow/mylibs"
+
+	mkdir -p @prefix@/stow/mylibs/bin
+	mkdir -p @prefix@/stow/mylibs/lib;
+	mkdir -p @prefix@/stow/mylibs/include/mylibs;
+
+	install --mode=744 lib/* @prefix@/stow/mylibs/lib/;
+	install --mode=744 *.h *.hpp @prefix@/stow/mylibs/include/mylibs/;
+	install --mode=755 mylibs-config @prefix@/stow/mylibs/bin/mylibs-config
+
+	stow --restow -d @prefix@/stow/ mylibs
+
+
+install: ${OFILES} tags
+	@echo "Using stow for installation :";
+	@which stow
+	echo "Installing to @prefix@/stow/"
+	@mkdir -p @prefix@/stow/
+	mkdir -p @prefix@/bin
+	mkdir -p @prefix@/include
+	mkdir -p @prefix@/lib
+	mkdir -p @prefix@/man
+	mkdir -p @prefix@/share
+	make installmylibs
+	make -C myFl install
+	make -C myImg install
+	make -C MCubes install
+	make -C Shape install
+	make -C Symbolic install
+	stow --restow -d @prefix@/stow/ mylibs
+	@echo -e "\nPlease adjust your PATH, CPATH, LIBRARY_PATH and LD_LIBRARY_PATH"
+
+uninstall:
+	@echo "Uninstalling from  @prefix@/stow/"
+	@echo "Unstowing mylibs"
+	stow -d @prefix@/stow/ -D mylibs
+	rm -rf @prefix@/stow/mylibs;
+	mkdir -p @prefix@/bin
+	mkdir -p @prefix@/include
+	mkdir -p @prefix@/lib
+	mkdir -p @prefix@/man
+	mkdir -p @prefix@/share
+
+
+clean:
+	rm -irf lib *.o make.log
+	make -C myFl clean
+	make -C myImg clean
+	make -C MCubes clean
+	make -C Shape clean
+	make -C Symbolic clean
+
+.PHONY: lib tags

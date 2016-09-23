@@ -1,0 +1,37 @@
+#! /bin/bash
+
+LIBNAME=mylib
+
+function usage {
+	echo -e "usage : `basename $0` [Option]\n\
+possible options :\n\
+	--help
+	--cflags        : pre-processor and compiler flags\n\
+	--ldflags       : linking information for MCubes library\n\
+	--cldflags      : both : cflags and ldflags\n\
+	--ldstaticflags : linking information for static linking\n\
+	--prefix        : installation prefix\n";
+	exit 0;
+}
+
+if [ $# -le 0 ]; then usage; fi
+
+which gsl-config &> /dev/null
+if [ $? -eq 0 ]; then # gsl found
+	LDADD+=" @GSLLIBS@"
+	CADD+=" @GSLCFLAGS@"
+	STAT+=" `gsl-config --prefix`/lib/libgslcblas.so `gsl-config --prefix`/lib/libgsl.so"
+fi
+
+for i in $@; do
+	case "$i" in
+		-?|--help)	usage;	;;
+		--cflags)	echo "-I@prefix@/include/ ${CADD}"; exit 0; ;;
+		--ldflags)	echo "-L@prefix@/lib/ -l${LIBNAME} ${LDADD}"; exit 0; ;;
+		--cldflags)	echo "-I@prefix@/include/ ${CADD} -L@prefix@/lib/ -l${LIBNAME} ${LDADD}"; exit 0; ;;
+		--ldstaticflags) echo "@prefix@/lib/lib${LIBNAME}.a ${STAT}"; exit 0; ;;
+		--prefix)	echo "@prefix@"; exit 0; ;;
+	esac
+done
+
+

@@ -1,0 +1,14 @@
+#! /bin/bash
+
+#konvertiert alle  eps files im aktuellen Ordner und Unterordnern nach png
+
+# suche alle Dateien in diesem Ordner und allen Unterordnern
+liste=`find . -name '*.eps'`
+#echo $liste
+
+for file in $liste # iteriert durch alle png's
+do
+	fn=`echo $file | sed 's/\.eps$//'`; # entfernt Endung
+	echo ${fn}.eps " >>> " ${fn}.eps	# nur ein echo
+	convert -density 300 image.eps -resize 1024x1024 ${fn}.eps ${fn}.png			# macht die Konvertierung
+done

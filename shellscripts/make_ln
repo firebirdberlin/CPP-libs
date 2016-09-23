@@ -1,0 +1,13 @@
+# ! /bin/bash
+
+# creates a symbolic link to a file in $MYLOCAL/bin
+
+arch=`uname -m`
+
+name=`basename $1 .$arch`
+
+if [ -L $MYLOCAL/bin/$name ] ; then rm -v $MYLOCAL/bin/$name; fi
+ 
+echo "Creating link $MYLOCAL/bin/$name => $1"
+
+ln -s `pwd`/$1 $MYLOCAL/bin/$name

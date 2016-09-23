@@ -1,0 +1,44 @@
+#! /bin/bash
+
+info=" lcp = list copy\n
+ \n
+  usage: lcp <list> <target> [<options>]\n
+ \n
+  Works just as cp does, but uses a text file as source.\n
+  This textfile contains a list of files to be copied either with relative\n
+  paths to the directory the textfile belongs to or with absolute paths.\n
+  Additional parameters are appended to cp\n
+"
+
+# check if there are at least 2 parameters or if help needed
+if [ $# -lt 2 ] || [ "$1" = "-?" ] ; then
+    echo -e $info;
+    exit 1;
+fi
+
+# check if the target directory exists
+if [ -d $2 ]; then
+    echo "Copying all files listed in "$1" to "$2".";
+else
+    echo "Error: "$2" does not exist!";
+    exit 1;
+fi
+
+# absolute path of the target
+abstargetpath=$PWD/$2
+
+# read the list of files
+list=`cat $1`
+
+# change into the list's dir
+listdir=`dirname $1`
+cd $listdir
+
+shift 2 # forget the first two parameters
+# Now we can add the remaining params to cp using $@
+
+# copy all files listed in the list
+for i in $list; do
+  cp $i $abstargetpath $@
+done
+

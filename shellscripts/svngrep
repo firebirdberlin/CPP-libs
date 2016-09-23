@@ -1,0 +1,70 @@
+#!/bin/bash
+
+FILE=$PWD/.svngrep-excludes
+
+function help(){
+	echo "$0 [-w] [-?]";
+	echo -e " Greps for a certain string in all files which are not \n\
+ version-controlled. In the file \n\
+\n\
+ $FILE\n\
+\n\
+ you can control which files are excluded.\n\
+
+ params: -w : initializes by writing the file .svngrep-excludes"
+}
+
+function init_file(){
+	if [ -f $FILE ]; then
+		echo -n "$FILE already exists. Delete (y/n) ";
+		read res;
+		if [ "$res" == "y" ]; then
+			rm -v $FILE;
+		else
+			exit -1;
+		fi
+	fi
+	find . -name ".svn" >> $FILE
+	find . -name ".pc" >> $FILE
+	find . -name ".git" >> $FILE
+	find . -name ".hg" >> $FILE
+	find . -name "doc" >> $FILE
+	find . -name "html" >> $FILE
+	echo "*.tags" >> $FILE;
+	echo "*.o" >> $FILE;
+	echo "*.a" >> $FILE;
+	echo "*.tag" >> $FILE;
+	echo "*.orig" >> $FILE;
+}
+
+for i in $@; do
+        case $i in
+        -w) init_file; exit;;
+        -?) help; exit;;
+        *) ;;
+        esac
+done
+
+if [ ! -f $FILE ]; then
+	init_file;
+fi
+
+excludes=""
+if [ -f $FILE ]; then
+	for i in `cat $FILE`; do
+		i=${i#./};
+		if [ "${i:0:1}" != "*" ];then
+			excludes="${excludes} -path './$i' -o"
+		else
+			excludes="${excludes} -path '$i' -o"
+		fi
+
+	done;
+fi
+excludes=${excludes% \-o}
+
+cmd="find  \( $excludes \) -prune -o -type f -print0 "
+eval $cmd | xargs -0 grep -d skip -I "$@" --color=auto -n
+
+# that's how it was before
+#find  \(-path '*/.pc' -o -path '*/.svn' -o -path '*/.git' -o -path '*/.hg' -o -path '*/doc' -o -path '*/html' -o -path '*.tags' -o -path '*.o'  -o -path '*.a' -o -path '*.tag' -o -path '*.orig' \) -prune -o -type f -print0 | xargs -0 grep "$@" --color=auto -n

@@ -1,0 +1,46 @@
+#! /bin/bash
+
+human_readable=
+print_only=
+for i in $@; do
+	case $i in
+	-h) human_readable="1";;
+	-p) print_only="1";;
+	-?) echo "$0 [-p] [-h] [-?]"; exit;;
+	*) ;;
+	esac
+done
+
+eval `cat /proc/meminfo | sed 's/: */=/g' | sed 's/ .*//g' | sed 's/(/_/g'| sed 's/)/_/g'`
+
+let "free=MemFree + Buffers + Cached"
+
+if [ "$print_only" = "1" ]; then
+	echo $free
+	exit 0
+fi
+
+if [ "$human_readable" != "1" ]; then
+	printf "Total :\t %8d kB\n"  $MemTotal
+	printf "free  :\t %8d kB\n"  $free
+else
+	cnt=0
+	MemTotalInt=$MemTotal
+	while [ $MemTotalInt -ge 1024 ]; do
+		let "MemTotalInt=MemTotalInt/1024"
+		MemTotal=`calc -p $MemTotal/1024.`
+		free=`calc -p $free/1024.`
+		let "cnt=cnt+1"
+	done
+	if [ $cnt == 0 ]; then	Einheit="B"; fi
+	if [ $cnt == 1 ]; then	Einheit="MB"; fi
+	if [ $cnt == 2 ]; then	Einheit="GB"; fi
+
+	OLD_LC_ALL=$LC_ALL
+	export LC_ALL=C			# damit printf mit Punkten statt Komata rechnet
+	printf "Total :\t %8.2f %s\n"  $MemTotal $Einheit
+	printf "free  :\t %8.2f %s\n"  $free $Einheit
+	export LC_ALL=$OLD_LC_ALL
+fi
+
+

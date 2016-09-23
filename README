@@ -1,0 +1,41 @@
+Dear unknown user,
+
+before you can start using these libraries. You will have to install them properly. 
+How to to this is explained in the documentation of mylibs. 
+
+Documentation
+-------------
+The documentation is included into this package. To create it you will need the program 
+doxygen from http://www.stack.nl/~dimitri/doxygen/. 
+
+If your linux distribution is not too weird then there should be an appropriate package. 
+Otherwise you compile doxygen from the sources which is fairly easy.
+
+To finally create the documentation do
+ $ doxygen Doxyfile
+ $ cd doc 
+ $ firefox index.htm
+ 
+Compilation/Installation
+------------
+You can compile and install the mylibs yourself, if you
+ $ export MYLOCAL=$HOME/local_`uname -m`
+ $ ./configure --prefix=$MYLOCAL
+ $ make install
+
+Please also add
+ export PATH=$MYLOCAL/bin/:$PATH
+ export CPATH=$MYLOCAL/include/:$CPATH
+ export LIBRARY_PATH=$MYLOCAL/lib/:$LIBRARY_PATH
+ export LD_LIBRARY_PATH=$MYLOCAL/lib/:$LD_LIBRARY_PATH
+
+ to your ~/.bashrc .
+
+
+That's all I have to tell you here. 
+So have fun, 
+Stefan
+
+
+
+

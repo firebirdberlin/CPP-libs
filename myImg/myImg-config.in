@@ -1,0 +1,28 @@
+#! /bin/bash
+
+LIBNAME=myImg
+
+function usage {
+	echo -e "usage : `basename $0` [Option]\n\
+possible options :\n\
+	--help
+	--cflags        : pre-processor and compiler flags\n\
+	--ldflags       : linking information for myImg library\n\
+	--ldstaticflags : linking information for static linking\n\
+	--prefix        : installation prefix\n";
+	exit 0;
+}
+
+if [ $# -le 0 ]; then usage; fi
+
+for i in $@; do
+	case "$i" in
+		-?|--help)	usage;	;;
+		--cflags)	echo "-I@prefix@/include/ ${CADD} -DHAVE_myImg"; exit 0; ;;
+		--ldflags)	echo "-L@prefix@/lib/ -l${LIBNAME} ${LDADD} -DHAVE_myImg -lz"; exit 0; ;;
+		--ldstaticflags) echo "@prefix@/lib/lib${LIBNAME}.a ${STAT} -DHAVE_myImg"; exit 0; ;;
+		--prefix)	echo "@prefix@"; exit 0; ;;
+	esac
+done
+
+

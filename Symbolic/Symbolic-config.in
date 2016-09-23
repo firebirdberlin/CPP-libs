@@ -1,0 +1,29 @@
+#! /bin/bash
+
+LIBNAME=Symbolic
+
+function usage {
+	echo -e "usage : `basename $0` [Option]\n\
+possible options :\n\
+	--help
+	--cflags        : pre-processor and compiler flags\n\
+	--ldflags       : linking information for Symbolic maths parser library\n\
+	--ldstaticflags : linking information for static linking\n\
+	--prefix        : installation prefix\n";
+	exit 0;
+}
+
+if [ $# -le 0 ]; then usage; fi
+
+
+for i in $@; do
+	case "$i" in
+		-?|--help)	usage;	;;
+		--cflags)	echo "-I@prefix@/include/"; exit 0; ;;
+		--ldflags)	echo "-L@prefix@/lib/ -l${LIBNAME}"; exit 0; ;;
+		--ldstaticflags) echo "@prefix@/lib/lib${LIBNAME}.a"; exit 0; ;;
+		--prefix)	echo "@prefix@"; exit 0; ;;
+	esac
+done
+
+

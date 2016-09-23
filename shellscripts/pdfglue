@@ -1,0 +1,48 @@
+#! /usr/bin/python
+
+import sys, os
+
+print """ pdfglue v0.1
+ ... Glues pdf files together, can supply pdf password, but assumes every pdf has
+the same password. Needs to have pdftk installed.
+
+example python pdfglue *.pdf -p <password> -o output.pdf
+
+parameters:
+	-p <password>
+	-o <outfile> (default: output.pdf)
+"""
+
+outfile = "output.pdf"
+password = None
+pdflist = []
+
+for i in range(len(sys.argv)):
+	if sys.argv[i] == '-o':
+		try:
+			outfile = sys.argv[i+1]
+		except:
+			outfile = "ausgabe.pdf"
+	elif sys.argv[i] == '-p':
+		try:
+			password = sys.argv[i+1]
+		except:
+			password = None
+	elif sys.argv[i].endswith('.pdf') and i > 0 and sys.argv[i-1][0] != '-':
+			pdflist.append(sys.argv[i])
+
+
+
+pwstring = ""
+if password:
+	pwstring += "input_pw "
+	for i in pdflist:
+		pwstring += password + ' '
+
+pdfstring = ""
+for i in pdflist:
+	pdfstring += i + ' '
+
+cmd = "pdftk %s %s cat output %s" % (pdfstring, pwstring, outfile)
+print " $ %s" % (cmd)
+os.popen(cmd)

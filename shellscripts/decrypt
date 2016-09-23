@@ -1,0 +1,22 @@
+#! /bin/bash
+
+# decrypt files easily using gpg
+# usage: $ crypt <filename>
+
+input=$1
+dateiname=${input%.*} # oder ${a%.tex} wenn sicher nur *.tex-Dateien vorkommen
+endung=${input##*.}
+
+if [ "$endung" = "gpg" ]
+        then
+		ausgabe=$dateiname	# Datei ohne Endung neu anlegen
+		gpg -d $1 > $ausgabe	# Entschlüsseln
+		chmod 600 $ausgabe
+		echo $ausgabe "wird geschrieben."
+
+elif [ "$endung" != "gpg" ]
+        then
+		echo "Die Eingabe ist keine gpg-verschlüsselte Datei!"
+fi
+
+

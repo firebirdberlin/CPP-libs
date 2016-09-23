@@ -1,0 +1,26 @@
+#! /bin/bash
+
+if [[ "$1" == -? ]]; then
+	echo -e "\
+cats every n'th line of a file\n\
+usage:	 ncat <n> <n> [file]\n\
+The numbers denote the line to start from and the line interval.";
+	exit;
+fi
+
+if [[ ! $1 -ge 1 ]]; then
+	echo "The starting line (param 1) must be numeric and >= 1."
+	exit -1;
+fi
+
+if [[ ! $2 -ge 1 ]]; then
+	echo "The interval (param 2) must be numeric and >= 1."
+	exit -1;
+fi
+
+starting_line=$1
+every_line=$2
+shift 2
+
+eval sed -n '${starting_line}~${every_line}p' $1
+
